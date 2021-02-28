@@ -5,29 +5,26 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"socks5/socks5"
+	"socks5/handler"
 	"strconv"
 )
 
 var (
-	port     = flag.Int("-port", 0, "the proxy port")
-	host     = flag.String("-host", "127.0.0.1", "the address listen on")
-	Username = flag.String("-token", "", "your username")
-	Password = flag.String("-password", "", "your password")
+	port     = flag.Int("port", 1080, "the proxy port")
+	host     = flag.String("host", "localhost", "the address listen on")
+	Username = flag.String("username", "", "your username")
+	Password = flag.String("password", "", "your password")
 )
 
 func main() {
 	flag.Parse()
 
-	if *port == 0 {
+	if *port == 1080 {
 		if envPort := os.Getenv("PORT"); envPort != "" {
 			if i, err := strconv.Atoi(envPort); err == nil {
 				*port = i
 			}
 		}
-	}
-	if *port == 0 {
-		*port = 1080
 	}
 
 	addr := net.TCPAddr{
@@ -46,6 +43,6 @@ func main() {
 			fmt.Println(err)
 		}
 		fmt.Println("Client address: ", conn.RemoteAddr())
-		go socks5.Handle(conn)
+		go handler.Handle(conn)
 	}
 }
