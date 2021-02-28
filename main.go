@@ -12,12 +12,16 @@ import (
 var (
 	port     = flag.Int("port", 1080, "the proxy port")
 	host     = flag.String("host", "localhost", "the address listen on")
-	Username = flag.String("username", "", "your username")
-	Password = flag.String("password", "", "your password")
+	username = flag.String("username", "", "your username")
+	password = flag.String("password", "", "your password")
 )
 
 func main() {
 	flag.Parse()
+
+	if *username != "" && *password != "" {
+		handler.SetUsernameAndPassword(*username, *password)
+	}
 
 	if *port == 1080 {
 		if envPort := os.Getenv("PORT"); envPort != "" {

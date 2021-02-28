@@ -9,9 +9,7 @@ var (
 	NoAuthenticationRequired = []byte("\x00")[0]
 	GSSAPI                   = []byte("\x01")[0]
 	UsernamePassword         = []byte("\x02")[0]
-	// X'03' to X'7F' IANA ASSIGNED
-	// X'80' to X'FE' RESERVED FOR PRIVATE METHODS
-	NoAcceptableMethods = []byte("\xFF")[0]
+	NoAcceptableMethods      = []byte("\xFF")[0]
 )
 
 func authentication(conn *net.TCPConn) (ok bool) {
@@ -24,6 +22,9 @@ func authentication(conn *net.TCPConn) (ok bool) {
 		+----+--------+
 	*/
 	method := processMethodSelectionRequest(conn)
+	if method == NoAcceptableMethods {
+		return false
+	}
 	reply := make([]byte, 2)
 	reply[0] = Version
 	reply[1] = method
@@ -31,7 +32,57 @@ func authentication(conn *net.TCPConn) (ok bool) {
 		fmt.Println(err)
 		return false
 	}
+	if method == UsernamePassword {
+		return usernamePasswordNegotiation(conn)
+	}
 	return true
+}
+
+func usernamePasswordNegotiation(conn *net.TCPConn) (ok bool) {
+	/*
+		Client send request:
+		+----+------+----------+------+----------+
+		|VER | ULEN |  UNAME   | PLEN |  PASSWD  |
+		+----+------+----------+------+----------+
+		| 1  |  1   | 1 to 255 |  1   | 1 to 255 |
+		+----+------+----------+------+----------+
+	*/
+	ok = false
+	version := uint8(1)
+	buffer := make([]byte, 102)
+	if _, err := conn.Read(buffer); err != nil {
+		fmt.Println(err)
+		return
+	}
+	if buffer[0] != version {
+		return
+	}
+	usernameLength := buffer[1]
+	username := string(buffer[2 : 2+usernameLength])
+	passwordLength := buffer[2+usernameLength]
+	password := string(buffer[2+usernameLength+1 : 2+usernameLength+1+passwordLength])
+
+	/*
+		Server reply:
+		+----+--------+
+		|VER | STATUS |
+		+----+--------+
+		| 1  |   1    |
+		+----+--------+
+	*/
+	status := uint8(1)
+	if username == Username && password == Password {
+		status = 0
+		ok = true
+	}
+	var reply []byte
+	reply = append(reply, Version)
+	reply = append(reply, status)
+	if _, err := conn.Write(reply); err != nil {
+		fmt.Println(err)
+		return
+	}
+	return
 }
 
 func processMethodSelectionRequest(conn *net.TCPConn) (method byte) {
@@ -59,14 +110,11 @@ func processMethodSelectionRequest(conn *net.TCPConn) (method byte) {
 		return NoAcceptableMethods
 	}
 	for _, method := range methods {
-		switch method {
-		// TODO: support more methods
-		case NoAuthenticationRequired:
-			return method
-			//case GSSAPI:
-			//	return method
-			//case UsernamePassword:
-			//	return UsernamePassword
+		if NoAuth && method == NoAuthenticationRequired {
+			return NoAuthenticationRequired
+		}
+		if !NoAuth && method == UsernamePassword {
+			return UsernamePassword
 		}
 	}
 	return NoAcceptableMethods

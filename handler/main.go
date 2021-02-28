@@ -35,6 +35,18 @@ var (
 	AddressTypeNotSupportedReply = []byte("\x08")[0]
 )
 
+var (
+	Username = ""
+	Password = ""
+	NoAuth   = true
+)
+
+func SetUsernameAndPassword(username, password string) {
+	Username = username
+	Password = password
+	NoAuth = false
+}
+
 func Handle(conn *net.TCPConn) {
 	if authentication(conn) {
 		processRequest(conn)
